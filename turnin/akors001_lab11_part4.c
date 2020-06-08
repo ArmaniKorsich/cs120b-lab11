@@ -93,123 +93,49 @@ int keypadFct(int state) {
 }
 
 
-char* sentence =  "                          *                  ";
-char* sentence2 = "     *      *                         *      ";
 
-const unsigned char* str1 = "   Game Start   ";
-const unsigned char* str2 = "     Crash      ";
-unsigned char offset = 0;
-unsigned char i;
-unsigned char position = 0;
-enum States {load, Start, Screen, slowdown, pause, pause1, crash, gameOver};
-
-int scrollFct(int state) {
-
+enum screenStates {Start, wait, Screen, unbounce};
+const unsigned char* string = "Congratulations";
+unsigned char count = 1;
+int drawKeyFct(int state) {	
 	switch(state) {
-		case load:
-			LCD_DisplayString(1, str1);
-			position = 0;
-			offset = 0;
-			if (key == -13) {
-				state = Start;
-				LCD_ClearScreen();
-			} else {
-				state = load;
-			}
-			break;
 		case Start:
+			LCD_DisplayString(1, string);
+			LCD_Cursor(1);
+			state = wait;
+			break;
+		case wait:
 			if (key == 47) {
+				state = wait;
+			} else { 
 				state = Screen;
 			}
 			break;
-
 		case Screen:
-			//draw the map
-			for (i = 0; i <= 15; ++i) {
-				//draw the whole screen
-				LCD_Cursor(i+1);
-				LCD_WriteData(sentence[i + offset]);
-				LCD_Cursor(i+17);
-				LCD_WriteData(sentence2[i + offset]);
-				
-				//check for collisions
-				if(i == 0) {
-					if (position == 0 && sentence[i + offset] == '*') {
-						state = crash;
-						return state;
-					}
-					if (position == 1 && sentence2[i + offset] == '*') {
-						state = crash;
-						return state;
-					}
-				}					
-
+			LCD_Cursor(count);
+			count++;
+			if(count == strlen(string) + 1) {
+				count = 1;
 			}
-			
-			if(position == 0) {
-				LCD_Cursor(1);
+			LCD_WriteData(key + '0');
+			state = unbounce;
+			break;
+		case unbounce:
+			if(key == 47) {
+				state = wait;
 			} else {
-				LCD_Cursor(17);
-			}
-
-			offset++;
-			//reset the offset when the string is going to overflow
-			if ((offset + i) == strlen(sentence) - 1) {
-				offset = 0;
-			}	
-
-
-
-			//get the player cursor
-			if (key == 1) {
-				position = 0;
-				LCD_Cursor(1);
-
-			}
-			if (key == 2) {
-				position = 1;
-				LCD_Cursor(17);
-			}
-
-
-			if (key == -13) {
-				state = pause;
-			}
-			break;
-
-		case slowdown:
-			state = Screen;
-		//debounce because the same button pausees and unpauses
-		case pause:
-			if (key == 47) {
-				state = pause1;
-			}
-			break;
-		case pause1:
-			if (key == -13) {
-				state = Start;
-			}
-			break;
-		case crash:
-			LCD_ClearScreen();
-			LCD_DisplayString(1, str2);
-			state = gameOver;
-			break;
-		case gameOver:
-			if (key == -13) {
-				state = load;
+				state = unbounce;
 			}
 			break;
 		default:
-			state = load;
+			state = Start;
 			break;
 	}
-			
 	return state;
 
-
 }
-	
+
+
 int main(void) {
     	/* Insert DDR and PORT initializations */
 	DDRA = 0x00; PORTA = 0xFF;
@@ -231,10 +157,11 @@ int main(void) {
 	task1.elapsedTime = task1.period;
 	task1.TickFct = &keypadFct;
 	
+	
 	task2.state = start;
-	task2.period = 300;
+	task2.period = 50;
 	task2.elapsedTime = task2.period;
-	task2.TickFct = &scrollFct;
+	task2.TickFct = &drawKeyFct;
 	
 	unsigned long GCD = tasks[0]->period;
 	for(unsigned short j = 1; j < numTasks; j++) {
